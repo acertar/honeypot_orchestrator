@@ -1,0 +1,748 @@
+{% extends "base.html" %}
+
+{% block title %}SOC Dashboard — Honeypot Orchestrator{% endblock %}
+
+{% block content %}
+<div x-data="dashboardApp()" x-init="init()" class="relative z-10 min-h-screen lg:flex">
+
+  <!-- Mobile sidebar backdrop -->
+  <div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden" @click="sidebarOpen = false"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar fixed inset-y-0 left-0 z-50 flex w-72 flex-col transition-transform duration-300 lg:translate-x-0"
+         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
+    <div class="flex items-center justify-between px-5 pb-6 pt-6">
+      <a href="/" class="flex items-center gap-3">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Honeypot Orchestrator" class="h-10 w-10 drop-shadow-[0_0_14px_rgba(34,211,238,.35)]">
+        <div>
+          <div class="text-[13px] font-extrabold tracking-[.18em] text-white">HONEYPOT</div>
+          <div class="text-[9px] font-bold tracking-[.32em] text-neon-cyan/80">ORCHESTRATOR</div>
+        </div>
+      </a>
+      <button class="btn btn-icon btn-ghost lg:hidden" @click="sidebarOpen = false" aria-label="Закрыть меню">
+        <svg class="h-5 w-5"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+
+    <div class="px-5">
+      <div class="glass-chip w-full justify-center border-neon-cyan/20 bg-neon-cyan/[.06] text-neon-cyan">
+        <span class="dot dot-live"></span>
+        SOC CONSOLE
+      </div>
+    </div>
+
+    <nav class="mt-6 flex-1 space-y-1.5 overflow-y-auto px-4 scroll-thin">
+      <template x-for="item in navItems()" :key="item.id">
+        <button type="button" class="nav-item" :class="tab === item.id ? 'active' : ''" @click="go(item.id)">
+          <svg class="nav-ico"><use :href="'#' + item.icon"></use></svg>
+          <span x-text="item.label"></span>
+          <span x-show="item.badge" class="nav-badge" x-text="item.badge"></span>
+        </button>
+      </template>
+    </nav>
+
+    <div class="px-4 pb-5">
+      <div class="panel-soft p-3.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-extrabold uppercase tracking-[.16em] text-slate-500">Инфраструктура</span>
+          <span class="badge" :class="health.status === 'ok' ? 'badge-low' : 'badge-medium'" x-text="health.status === 'ok' ? 'ONLINE' : 'DEGRADED'"></span>
+        </div>
+        <div class="mt-3 space-y-2">
+          <template x-for="check in infraChecks()" :key="check.key">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="flex items-center gap-2 text-slate-400">
+                <span class="dot" :class="check.ok ? 'dot-live' : 'dot-error'"></span>
+                <span x-text="check.label"></span>
+              </span>
+              <span class="mono text-[10px]" :class="check.ok ? 'text-neon-green' : 'text-neon-red'" x-text="check.ok ? 'OK' : 'DOWN'"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center justify-between px-1 text-[10px] text-slate-600">
+        <span class="mono">v1.0.0</span>
+        <span class="flex items-center gap-1.5"><span class="dot dot-live"></span>поток активен</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex min-h-screen w-full flex-col lg:pl-72">
+    <header class="sticky top-0 z-30 border-b border-white/[.06] bg-ink-950/70 backdrop-blur-xl">
+      <div class="flex items-center gap-3 px-4 py-3.5 sm:px-6 xl:px-8">
+        <button class="btn btn-icon btn-ghost lg:hidden" @click="sidebarOpen = true" aria-label="Открыть меню">
+          <svg class="h-5 w-5"><use href="#i-menu"></use></svg>
+        </button>
+
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">
+            <span>Honeypot Orchestrator</span>
+            <span class="text-slate-700">/</span>
+            <span class="text-neon-cyan/70" x-text="pageTitle()"></span>
+          </div>
+          <h1 class="mt-0.5 truncate text-lg font-extrabold tracking-tight text-white sm:text-xl" x-text="pageTitle()"></h1>
+        </div>
+
+        <div class="hidden items-center gap-2 md:flex">
+          <div class="glass-chip">
+            <span class="dot" :class="wsConnected ? 'dot-live' : 'dot-error'"></span>
+            <span class="mono text-[10px] tracking-wider" :class="wsConnected ? 'text-neon-green' : 'text-neon-red'" x-text="wsConnected ? 'LIVE' : 'OFFLINE'"></span>
+          </div>
+          <div class="glass-chip mono text-[11px] text-slate-300">
+            <svg class="h-3.5 w-3.5 text-slate-500"><use href="#i-clock"></use></svg>
+            <span data-hp-clock>00:00:00</span>
+          </div>
+        </div>
+
+        <button class="btn btn-icon btn-ghost" @click="refreshAll()" :disabled="refreshing" title="Обновить данные">
+          <svg class="h-4 w-4" :class="refreshing ? 'animate-spin' : ''"><use href="#i-refresh"></use></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="flex-1 px-4 py-6 sm:px-6 xl:px-8">
+      <!-- ================= OVERVIEW ================= -->
+      <section x-show="tab === 'overview'" x-transition.opacity class="space-y-6">
+        <div class="panel relative overflow-hidden p-5 sm:p-7">
+          <div class="pointer-events-none absolute -right-24 -top-32 h-72 w-72 rounded-full bg-neon-cyan/10 blur-3xl"></div>
+          <div class="pointer-events-none absolute -bottom-40 left-1/3 h-72 w-72 rounded-full bg-neon-violet/10 blur-3xl"></div>
+          <div class="relative flex flex-wrap items-end justify-between gap-5">
+            <div>
+              <div class="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[.23em] text-neon-cyan/80">
+                <span class="dot dot-live"></span> оперативный обзор
+              </div>
+              <h2 class="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+                <span class="gradient-text">Контур киберобороны</span>
+              </h2>
+              <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                Мониторинг ловушек, источников атак и событий в реальном времени.
+                <span class="text-slate-500">Данные обновляются автоматически.</span>
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <div class="glass-chip"><svg class="h-3.5 w-3.5 text-neon-green"><use href="#i-shield-check"></use></svg><span x-text="runningHoneypots() + ' активных ловушек'"></span></div>
+              <div class="glass-chip"><svg class="h-3.5 w-3.5 text-neon-cyan"><use href="#i-activity"></use></svg><span x-text="HP.number(stats.counts.total) + ' событий'"></span></div>
+              <div class="glass-chip"><svg class="h-3.5 w-3.5 text-neon-violet"><use href="#i-globe"></use></svg><span x-text="stats.geo_points.length ? stats.geo_points.length + ' гео-точек' : 'гео ожидает данных'"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div class="panel panel-hover kpi-card p-5" style="--accent: rgba(34,211,238,.55)">
+            <div class="flex items-start justify-between">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-neon-cyan/20 bg-neon-cyan/[.08] text-neon-cyan">
+                <svg class="h-5 w-5"><use href="#i-activity"></use></svg>
+              </div>
+              <span class="badge badge-cyan">ALL TIME</span>
+            </div>
+            <div class="mt-5 text-3xl font-extrabold text-white kpi-value" x-text="HP.number(stats.counts.total)"></div>
+            <div class="mt-1 text-xs font-semibold text-slate-400">Всего событий</div>
+            <div class="mt-3 flex items-center gap-1.5 text-[10px] text-slate-500">
+              <span class="dot dot-live"></span><span>за 30 дней: <span class="text-slate-300" x-text="HP.number(stats.counts['30d'])"></span></span>
+            </div>
+          </div>
+
+          <div class="panel panel-hover kpi-card p-5" style="--accent: rgba(52,211,153,.55)">
+            <div class="flex items-start justify-between">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-neon-green/20 bg-neon-green/[.08] text-neon-green">
+                <svg class="h-5 w-5"><use href="#i-zap"></use></svg>
+              </div>
+              <span class="badge badge-low">24H</span>
+            </div>
+            <div class="mt-5 text-3xl font-extrabold text-white kpi-value" x-text="HP.number(stats.counts['24h'])"></div>
+            <div class="mt-1 text-xs font-semibold text-slate-400">Событий за 24 часа</div>
+            <div class="mt-3 flex items-center gap-1.5 text-[10px] text-slate-500">
+              <span class="dot" :class="stats.counts['24h'] ? 'dot-live' : 'dot-idle'"></span>
+              <span x-text="stats.counts['24h'] ? 'активность зафиксирована' : 'пока тихо'"></span>
+            </div>
+          </div>
+
+          <div class="panel panel-hover kpi-card p-5" style="--accent: rgba(251,113,133,.55)">
+            <div class="flex items-start justify-between">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-neon-red/20 bg-neon-red/[.08] text-neon-red">
+                <svg class="h-5 w-5"><use href="#i-alert"></use></svg>
+              </div>
+              <span class="badge badge-critical">FOCUS</span>
+            </div>
+            <div class="mt-5 text-3xl font-extrabold text-white kpi-value" x-text="HP.number(criticalCount())"></div>
+            <div class="mt-1 text-xs font-semibold text-slate-400">Критических событий</div>
+            <div class="mt-3 flex items-center gap-1.5 text-[10px] text-slate-500">
+              <span class="dot" :class="criticalCount() ? 'dot-error' : 'dot-idle'"></span>
+              <span x-text="criticalCount() ? 'требуют внимания SOC' : 'критических инцидентов нет'"></span>
+            </div>
+          </div>
+
+          <div class="panel panel-hover kpi-card p-5" style="--accent: rgba(139,92,246,.55)">
+            <div class="flex items-start justify-between">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-neon-violet/20 bg-neon-violet/[.08] text-neon-violet">
+                <svg class="h-5 w-5"><use href="#i-server"></use></svg>
+              </div>
+              <span class="badge badge-violet">PODMAN</span>
+            </div>
+            <div class="mt-5 flex items-end gap-2">
+              <span class="text-3xl font-extrabold text-white kpi-value" x-text="runningHoneypots()"></span>
+              <span class="pb-1 text-sm font-semibold text-slate-500">/ <span x-text="honeypots.length"></span></span>
+            </div>
+            <div class="mt-1 text-xs font-semibold text-slate-400">Ловушек работает</div>
+            <div class="mt-3 flex items-center gap-1.5 text-[10px] text-slate-500">
+              <span class="dot" :class="runningHoneypots() ? 'dot-live' : 'dot-idle'"></span>
+              <span x-text="honeypots.length ? 'контейнеры под контролем' : 'ловушки ещё не созданы'"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <div class="panel xl:col-span-2">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Активность за 24 часа</div>
+                <div class="panel-subtitle">Почасовое распределение событий</div>
+              </div>
+              <span class="badge badge-cyan"><span class="dot dot-live"></span> TIMELINE</span>
+            </div>
+            <div class="panel-body">
+              <div x-ref="timelineChart" class="echarts-host" style="height:280px"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Уровни критичности</div>
+                <div class="panel-subtitle">Распределение severity</div>
+              </div>
+              <svg class="h-4 w-4 text-slate-600"><use href="#i-layers"></use></svg>
+            </div>
+            <div class="panel-body">
+              <div x-ref="severityChart" class="echarts-host" style="height:250px"></div>
+              <div class="mt-3 grid grid-cols-2 gap-2">
+                <template x-for="item in stats.severity_distribution" :key="item.severity">
+                  <div class="flex items-center justify-between rounded-lg border border-white/[.05] bg-white/[.02] px-2.5 py-2">
+                    <span class="flex items-center gap-2 text-[11px] text-slate-400">
+                      <span class="h-2 w-2 rounded-full" :style="'background:' + HP.severityMeta(item.severity).color"></span>
+                      <span x-text="HP.severityMeta(item.severity).label"></span>
+                    </span>
+                    <span class="mono text-[11px] font-bold text-slate-200" x-text="HP.number(item.count)"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Топ источников</div>
+                <div class="panel-subtitle">Наиболее активные IP</div>
+              </div>
+              <svg class="h-4 w-4 text-slate-600"><use href="#i-crosshair"></use></svg>
+            </div>
+            <div class="panel-body">
+              <div x-ref="ipChart" class="echarts-host" style="height:230px"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Типы событий</div>
+                <div class="panel-subtitle">Векторы атак</div>
+              </div>
+              <svg class="h-4 w-4 text-slate-600"><use href="#i-activity"></use></svg>
+            </div>
+            <div class="panel-body">
+              <div x-ref="typeChart" class="echarts-host" style="height:230px"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">MITRE ATT&CK</div>
+                <div class="panel-subtitle">Наблюдаемые техники</div>
+              </div>
+              <span class="badge badge-violet">TTP</span>
+            </div>
+            <div class="panel-body">
+              <div x-show="stats.top_mitre.length" class="space-y-2.5">
+                <template x-for="item in stats.top_mitre" :key="item.technique">
+                  <div class="flex items-center gap-3 rounded-xl border border-white/[.05] bg-white/[.02] px-3 py-2.5">
+                    <div class="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-neon-violet/10 text-[9px] font-extrabold text-neon-violet" x-text="item.technique.startsWith('T') ? item.technique.slice(0, 5) : 'TTP'"></div>
+                    <div class="min-w-0 flex-1">
+                      <div class="mono truncate text-[11px] text-slate-300" x-text="item.technique"></div>
+                      <div class="mt-1 h-1 overflow-hidden rounded-full bg-white/[.05]">
+                        <div class="h-full rounded-full bg-gradient-to-r from-neon-violet to-neon-cyan" :style="'width:' + mitrePct(item.count) + '%'"></div>
+                      </div>
+                    </div>
+                    <span class="mono text-xs font-bold text-slate-200" x-text="item.count"></span>
+                  </div>
+                </template>
+              </div>
+              <div x-show="!stats.top_mitre.length" class="empty-state !py-8">
+                <div class="empty-icon"><svg class="h-5 w-5"><use href="#i-crosshair"></use></svg></div>
+                <div class="text-xs">Техники пока не зафиксированы</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title flex items-center gap-2">
+                Поток событий
+                <span class="badge" :class="wsConnected ? 'badge-low' : 'badge-neutral'"><span class="dot" :class="wsConnected ? 'dot-live' : 'dot-idle'"></span><span x-text="wsConnected ? 'LIVE' : 'RECONNECT'"></span></span>
+              </div>
+              <div class="panel-subtitle">Последние события из RabbitMQ и логов контейнеров</div>
+            </div>
+            <button class="btn btn-xs btn-ghost" @click="go('events')">
+              Все события <svg class="h-3.5 w-3.5"><use href="#i-arrow-up-right"></use></svg>
+            </button>
+          </div>
+          <div class="max-h-[430px] overflow-y-auto px-5 py-2 scroll-thin">
+            <template x-if="!liveEvents.length">
+              <div class="empty-state">
+                <div class="empty-icon"><svg class="h-5 w-5"><use href="#i-radio"></use></svg></div>
+                <div class="text-sm font-semibold text-slate-400">Поток событий пуст</div>
+                <div class="text-xs">Создайте ловушку или сгенерируйте активность — события появятся здесь.</div>
+              </div>
+            </template>
+            <template x-for="(event, index) in liveEvents" :key="event.event_id || event._id || index">
+              <div class="live-item group cursor-pointer" @click="openEvent(event)">
+                <div class="mt-1.5 h-2 w-2 flex-none rounded-full" :style="'background:' + HP.severityMeta(event.severity).color + ';box-shadow:0 0 12px ' + HP.severityMeta(event.severity).color"></div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span class="text-[13px] font-bold text-slate-200" x-text="HP.eventLabel(event.event_type)"></span>
+                    <span class="badge" :class="HP.severityMeta(event.severity).className" x-text="HP.severityMeta(event.severity).label"></span>
+                    <span class="mono text-[11px] text-neon-cyan/80" x-text="event.src_ip || 'internal'"></span>
+                  </div>
+                  <div class="mt-1 truncate text-[11px] text-slate-500" x-text="event.raw_log || (event.honeypot_name ? 'Ловушка: ' + event.honeypot_name : '')"></div>
+                </div>
+                <div class="flex flex-none flex-col items-end gap-1">
+                  <span class="mono text-[10px] text-slate-500" x-text="rel(event.timestamp)"></span>
+                  <span class="text-[10px] text-slate-600" x-text="event.honeypot_name || '—'"></span>
+                </div>
+                <svg class="mt-1 h-4 w-4 flex-none text-slate-700 transition group-hover:text-neon-cyan"><use href="#i-chevron-right"></use></svg>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= EVENTS ================= -->
+      <section x-show="tab === 'events'" x-transition.opacity class="space-y-5">
+        <div class="panel p-5">
+          <form @submit.prevent="applyFilters()" class="space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="panel-title">Журнал событий</div>
+                <div class="panel-subtitle">Фильтрация по источнику, типу и критичности</div>
+              </div>
+              <div class="flex gap-2">
+                <button type="button" class="btn btn-xs btn-ghost" @click="exportEvents()">
+                  <svg class="h-3.5 w-3.5"><use href="#i-download"></use></svg> Экспорт
+                </button>
+                <button type="button" class="btn btn-xs btn-ghost" @click="resetFilters()">Сбросить</button>
+                <button type="submit" class="btn btn-xs btn-primary">
+                  <svg class="h-3.5 w-3.5"><use href="#i-search"></use></svg> Применить
+                </button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div>
+                <label class="field-label">Источник</label>
+                <input type="text" class="input" placeholder="203.0.113.10" x-model="filters.src_ip">
+              </div>
+              <div>
+                <label class="field-label">Критичность</label>
+                <select class="select" x-model="filters.severity">
+                  <option value="">Все уровни</option>
+                  <option value="low">Низкий</option>
+                  <option value="medium">Средний</option>
+                  <option value="high">Высокий</option>
+                  <option value="critical">Критический</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Тип события</label>
+                <input type="text" class="input" list="event-types" placeholder="ssh.login_failed" x-model="filters.event_type">
+                <datalist id="event-types">
+                  <template x-for="type in eventTypes" :key="type">
+                    <option :value="type"></option>
+                  </template>
+                </datalist>
+              </div>
+              <div>
+                <label class="field-label">Ловушка</label>
+                <select class="select" x-model="filters.honeypot_id">
+                  <option value="">Все ловушки</option>
+                  <template x-for="hp in honeypots" :key="hp.id">
+                    <option :value="hp.id" x-text="hp.name"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">На странице</label>
+                <select class="select" x-model.number="limit" @change="page = 1; loadEvents()">
+                  <option :value="10">10</option>
+                  <option :value="20">20</option>
+                  <option :value="50">50</option>
+                  <option :value="100">100</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-[11px] text-slate-500">Найдено:</span>
+              <span class="mono text-xs font-bold text-slate-200" x-text="HP.number(eventsTotal)"></span>
+              <template x-if="filters.src_ip">
+                <button type="button" class="badge badge-cyan" @click="filters.src_ip = ''; applyFilters()">src: <span x-text="filters.src_ip"></span> ✕</button>
+              </template>
+              <template x-if="filters.severity">
+                <button type="button" class="badge badge-medium" @click="filters.severity = ''; applyFilters()">severity: <span x-text="filters.severity"></span> ✕</button>
+              </template>
+              <template x-if="filters.event_type">
+                <button type="button" class="badge badge-violet" @click="filters.event_type = ''; applyFilters()">type: <span x-text="filters.event_type"></span> ✕</button>
+              </template>
+            </div>
+          </form>
+        </div>
+
+        <div class="panel overflow-hidden">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Критичность</th>
+                  <th>Событие</th>
+                  <th>Источник</th>
+                  <th>Назначение</th>
+                  <th>Ловушка</th>
+                  <th>Время</th>
+                  <th class="text-right">Детали</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-if="loadingEvents">
+                  <template x-for="i in 6" :key="'skeleton-' + i">
+                    <tr>
+                      <td><div class="skeleton h-4 w-20"></div></td>
+                      <td><div class="skeleton h-4 w-44"></div></td>
+                      <td><div class="skeleton h-4 w-28"></div></td>
+                      <td><div class="skeleton h-4 w-16"></div></td>
+                      <td><div class="skeleton h-4 w-28"></div></td>
+                      <td><div class="skeleton h-4 w-20"></div></td>
+                      <td><div class="skeleton ml-auto h-4 w-6"></div></td>
+                    </tr>
+                  </template>
+                </template>
+                <template x-if="!loadingEvents && !events.length">
+                  <tr>
+                    <td colspan="7">
+                      <div class="empty-state">
+                        <div class="empty-icon"><svg class="h-5 w-5"><use href="#i-filter"></use></svg></div>
+                        <div class="text-sm font-semibold text-slate-400">Ничего не найдено</div>
+                        <div class="text-xs">Измените фильтры или сбросьте их.</div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+                <template x-for="event in events" :key="event._id || event.event_id">
+                  <tr class="clickable" @click="openEvent(event)">
+                    <td><span class="badge" :class="HP.severityMeta(event.severity).className" x-text="HP.severityMeta(event.severity).label"></span></td>
+                    <td>
+                      <div class="font-semibold text-slate-200" x-text="HP.eventLabel(event.event_type)"></div>
+                      <div class="mono mt-0.5 max-w-[280px] truncate text-[10px] text-slate-500" x-text="event.event_type"></div>
+                    </td>
+                    <td>
+                      <div class="mono text-[12px] text-neon-cyan/90" x-text="event.src_ip || '—'"></div>
+                      <div class="mono mt-0.5 text-[10px] text-slate-600" x-text="event.src_port ? ':' + event.src_port : ''"></div>
+                    </td>
+                    <td>
+                      <div class="mono text-[12px] text-slate-300" x-text="event.dst_port || '—'"></div>
+                      <div class="mt-0.5 text-[10px] uppercase tracking-wider text-slate-600" x-text="event.protocol || ''"></div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-2">
+                        <span class="flex h-6 w-6 items-center justify-center rounded-md bg-neon-violet/10 text-[8px] font-extrabold text-neon-violet" x-text="HP.typeMeta(event.honeypot_type).short"></span>
+                        <span class="max-w-[150px] truncate text-[12px] text-slate-400" x-text="event.honeypot_name || '—'"></span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="text-[11px] text-slate-400" x-text="HP.dateShort(event.timestamp)"></div>
+                      <div class="mt-0.5 text-[10px] text-slate-600" x-text="rel(event.timestamp)"></div>
+                    </td>
+                    <td class="text-right">
+                      <span class="badge" :class="event.forwarded ? 'badge-low' : 'badge-neutral'" x-text="event.forwarded ? 'SIEM' : 'LOCAL'"></span>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-white/[.06] px-4 py-3">
+            <div class="text-[11px] text-slate-500">
+              Страница <span class="font-bold text-slate-300" x-text="page"></span> из <span class="font-bold text-slate-300" x-text="pages || 1"></span>
+              <span class="ml-2 text-slate-600">·</span>
+              <span class="ml-2" x-text="HP.number(eventsTotal) + ' записей'"></span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button class="btn btn-icon btn-xs btn-ghost" :disabled="page <= 1" @click="goPage(page - 1)"><svg class="h-4 w-4"><use href="#i-chevron-left"></use></svg></button>
+              <template x-for="p in pageWindow()" :key="'page-' + p">
+                <button class="btn btn-xs" :class="p === page ? 'btn-primary' : 'btn-ghost'" @click="goPage(p)" x-text="p"></button>
+              </template>
+              <button class="btn btn-icon btn-xs btn-ghost" :disabled="page >= pages" @click="goPage(page + 1)"><svg class="h-4 w-4"><use href="#i-chevron-right"></use></svg></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= HONEYPOTS ================= -->
+      <section x-show="tab === 'honeypots'" x-transition.opacity class="space-y-5">
+        <div class="panel flex flex-wrap items-center justify-between gap-4 p-5">
+          <div>
+            <div class="panel-title">Ловушки</div>
+            <div class="panel-subtitle">Эмуляция уязвимых сервисов и состояние контейнеров</div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="badge badge-low"><span class="dot dot-live"></span><span x-text="runningHoneypots() + ' running'"></span></span>
+            <span class="badge badge-neutral" x-text="(honeypots.length - runningHoneypots()) + ' inactive'"></span>
+            <button class="btn btn-xs btn-ghost" @click="loadHoneypots()" :disabled="hpLoading">
+              <svg class="h-3.5 w-3.5" :class="hpLoading ? 'animate-spin' : ''"><use href="#i-refresh"></use></svg> Обновить
+            </button>
+          </div>
+        </div>
+
+        <div x-show="hpLoading" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <template x-for="i in 3" :key="'hp-skeleton-' + i">
+            <div class="panel p-5">
+              <div class="skeleton h-5 w-40"></div>
+              <div class="skeleton mt-4 h-4 w-56"></div>
+              <div class="skeleton mt-2 h-4 w-44"></div>
+              <div class="skeleton mt-6 h-10 w-full"></div>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="!hpLoading && honeypots.length" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <template x-for="hp in honeypots" :key="hp.id">
+            <article class="panel panel-hover overflow-hidden">
+              <div class="flex items-start justify-between p-5">
+                <div class="flex items-center gap-3">
+                  <div class="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 text-xs font-extrabold tracking-wider text-white" :style="typeGradient(hp.type)" x-text="HP.typeMeta(hp.type).short"></div>
+                  <div>
+                    <div class="font-bold text-slate-100" x-text="hp.name"></div>
+                    <div class="mt-0.5 text-[11px] text-slate-500" x-text="HP.typeMeta(hp.type).label"></div>
+                  </div>
+                </div>
+                <span class="badge" :class="HP.statusMeta(hp.status).className"><span class="dot" :style="'background:' + HP.statusMeta(hp.status).color"></span><span x-text="HP.statusMeta(hp.status).label"></span></span>
+              </div>
+              <div class="px-5">
+                <div class="mono truncate rounded-lg border border-white/[.05] bg-black/20 px-3 py-2 text-[10px] text-slate-500" x-text="hp.image_name || 'image: —'"></div>
+                <div class="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                  <div class="rounded-lg border border-white/[.05] bg-white/[.02] p-2.5">
+                    <div class="text-[9px] uppercase tracking-wider text-slate-600">Локация</div>
+                    <div class="mt-0.5 truncate text-slate-300" x-text="hp.location || '—'"></div>
+                  </div>
+                  <div class="rounded-lg border border-white/[.05] bg-white/[.02] p-2.5">
+                    <div class="text-[9px] uppercase tracking-wider text-slate-600">Порты</div>
+                    <div class="mono mt-0.5 truncate text-slate-300" x-text="formatPorts(hp.exposed_ports)"></div>
+                  </div>
+                </div>
+                <div class="mt-2 flex items-center justify-between rounded-lg border border-white/[.05] bg-white/[.02] px-2.5 py-2 text-[10px]">
+                  <span class="text-slate-600">Последнее событие</span>
+                  <span class="text-slate-400" x-text="hp.last_event_at ? rel(hp.last_event_at) : 'нет данных'"></span>
+                </div>
+              </div>
+              <div class="mt-4 flex items-center justify-between border-t border-white/[.06] px-5 py-3">
+                <span class="mono text-[10px] text-slate-600" x-text="hp.container_id ? hp.container_id.slice(0, 12) : 'no container'"></span>
+                <span class="flex items-center gap-1.5 text-[10px]" :class="hp.status === 'running' ? 'text-neon-green' : 'text-slate-500'">
+                  <span class="dot" :class="hp.status === 'running' ? 'dot-live' : 'dot-idle'"></span>
+                  <span x-text="hp.ip_address || 'network: ' + (hp.network_name || '—')"></span>
+                </span>
+              </div>
+            </article>
+          </template>
+        </div>
+
+        <div x-show="!hpLoading && !honeypots.length" class="panel">
+          <div class="empty-state">
+            <div class="empty-icon"><svg class="h-5 w-5"><use href="#i-server"></use></svg></div>
+            <div class="text-sm font-semibold text-slate-400">Ловушки ещё не созданы</div>
+            <div class="text-xs">Создание ловушек доступно в Admin Panel.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= ATTACK MAP ================= -->
+      <section x-show="tab === 'map'" x-transition.opacity class="space-y-5">
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <div class="panel xl:col-span-2">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title flex items-center gap-2">Карта атак <span class="badge badge-cyan">GEO</span></div>
+                <div class="panel-subtitle">Источники событий с гео-обогащением</div>
+              </div>
+              <div class="flex items-center gap-2 text-[10px] text-slate-500">
+                <span class="dot dot-error"></span> источник атаки
+              </div>
+            </div>
+            <div class="panel-body relative">
+              <div x-ref="mapChart" class="echarts-map"></div>
+              <div x-show="!stats.geo_points.length" class="absolute inset-0 flex items-center justify-center bg-ink-900/55 backdrop-blur-[2px]">
+                <div class="empty-state">
+                  <div class="empty-icon"><svg class="h-5 w-5"><use href="#i-globe"></use></svg></div>
+                  <div class="text-sm font-semibold text-slate-300">Гео-данных пока нет</div>
+                  <div class="max-w-sm text-xs">Seed-события содержат демонстрационное гео-обогащение. Реальные события требуют GeoIP-обогатителя на этапе ingestion.</div>
+                </div>
+              </div>
+            </div>
+            <div class="border-t border-white/[.06] px-5 py-3 text-[10px] text-slate-600">
+              Координаты источников — демонстрационные (seed). Для production подключите GeoIP (MaxMind/DB-IP) и обогащение в EventConsumer.
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="panel-title">Страны-источники</div>
+                  <div class="panel-subtitle">Топ направлений атак</div>
+                </div>
+                <svg class="h-4 w-4 text-slate-600"><use href="#i-globe"></use></svg>
+              </div>
+              <div class="panel-body space-y-3">
+                <template x-if="!stats.top_countries.length">
+                  <div class="empty-state !py-6"><div class="text-xs">Нет гео-данных</div></div>
+                </template>
+                <template x-for="(country, index) in stats.top_countries" :key="country.country">
+                  <div>
+                    <div class="mb-1 flex items-center justify-between text-[11px]">
+                      <span class="flex items-center gap-2 text-slate-300">
+                        <span class="mono w-4 text-[9px] text-slate-600" x-text="String(index + 1).padStart(2, '0')"></span>
+                        <span x-text="country.country"></span>
+                      </span>
+                      <span class="mono text-slate-400" x-text="country.count"></span>
+                    </div>
+                    <div class="h-1.5 overflow-hidden rounded-full bg-white/[.05]">
+                      <div class="h-full rounded-full bg-gradient-to-r from-neon-cyan to-neon-violet" :style="'width:' + countryPct(country.count) + '%'"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="panel-title">Активные IP</div>
+                  <div class="panel-subtitle">Топ источников</div>
+                </div>
+                <svg class="h-4 w-4 text-slate-600"><use href="#i-crosshair"></use></svg>
+              </div>
+              <div class="panel-body space-y-2">
+                <template x-for="ip in stats.top_src_ip.slice(0, 5)" :key="ip.src_ip">
+                  <div class="flex items-center justify-between rounded-lg border border-white/[.05] bg-white/[.02] px-2.5 py-2">
+                    <span class="mono text-[11px] text-neon-cyan/80" x-text="ip.src_ip"></span>
+                    <span class="badge badge-neutral" x-text="ip.count"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-white/[.05] pt-4 text-[10px] text-slate-600">
+        <span>Honeypot Orchestrator · SOC Dashboard</span>
+        <span class="flex items-center gap-2"><span class="dot" :class="health.status === 'ok' ? 'dot-live' : 'dot-error'"></span><span x-text="health.status === 'ok' ? 'Все системы в норме' : 'Деградация инфраструктуры'"></span><span class="text-slate-700">·</span><span class="mono" x-text="'API ' + (health.checks.app ? 'OK' : 'DOWN')"></span></span>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Event drawer -->
+  <div x-show="eventModal" class="fixed inset-0 z-[90]" x-cloak>
+    <div class="absolute inset-0 bg-black/75 backdrop-blur-sm"
+         x-show="eventModal"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click="eventModal = false"></div>
+    <div class="absolute inset-y-0 right-0 w-full max-w-[640px] drawer-panel"
+         x-show="eventModal"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+      <div class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/[.08] bg-ink-900/95 px-5 py-4 backdrop-blur-xl">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="badge" :class="selectedEvent ? HP.severityMeta(selectedEvent.severity).className : 'badge-neutral'" x-text="selectedEvent ? HP.severityMeta(selectedEvent.severity).label : '—'"></span>
+            <span class="mono text-[10px] text-slate-500" x-text="selectedEvent && selectedEvent.forwarded ? 'SENT TO SIEM' : 'LOCAL ONLY'"></span>
+          </div>
+          <h2 class="mt-2 truncate text-lg font-extrabold text-white" x-text="selectedEvent ? HP.eventLabel(selectedEvent.event_type) : 'Событие'"></h2>
+          <div class="mono mt-1 truncate text-[10px] text-slate-500" x-text="selectedEvent ? selectedEvent.event_id : ''"></div>
+        </div>
+        <button class="btn btn-icon btn-ghost" @click="eventModal = false"><svg class="h-5 w-5"><use href="#i-x"></use></svg></button>
+      </div>
+
+      <div class="space-y-5 p-5" x-show="selectedEvent">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div class="panel-soft p-3">
+            <div class="text-[9px] uppercase tracking-wider text-slate-600">Источник</div>
+            <div class="mono mt-1 text-[12px] text-neon-cyan" x-text="selectedEvent?.src_ip || '—'"></div>
+          </div>
+          <div class="panel-soft p-3">
+            <div class="text-[9px] uppercase tracking-wider text-slate-600">Src / Dst</div>
+            <div class="mono mt-1 text-[12px] text-slate-300" x-text="(selectedEvent?.src_port || '—') + ' → ' + (selectedEvent?.dst_port || '—')"></div>
+          </div>
+          <div class="panel-soft p-3">
+            <div class="text-[9px] uppercase tracking-wider text-slate-600">Протокол</div>
+            <div class="mt-1 text-[12px] uppercase text-slate-300" x-text="selectedEvent?.protocol || '—'"></div>
+          </div>
+          <div class="panel-soft p-3">
+            <div class="text-[9px] uppercase tracking-wider text-slate-600">Ловушка</div>
+            <div class="mt-1 truncate text-[12px] text-slate-300" x-text="selectedEvent?.honeypot_name || '—'"></div>
+          </div>
+          <div class="panel-soft p-3">
+            <div class="text-[9px] uppercase tracking-wider text-slate-600">MITRE</div>
+            <div class="mono mt-1 text-[12px] text-neon-violet" x-text="selectedEvent?.mitre_technique || '—'"></div>
+          </div>
+          <div class="panel-soft p-3">
+            <div class="text-[9px] uppercase tracking-wider text-slate-600">Получено</div>
+            <div class="mt-1 text-[11px] text-slate-300" x-text="selectedEvent ? HP.dateShort(selectedEvent.received_at || selectedEvent.timestamp) : '—'"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="mb-2 flex items-center justify-between">
+            <div class="text-[10px] font-extrabold uppercase tracking-[.15em] text-slate-500">Payload</div>
+            <button class="btn btn-xs btn-ghost" @click="copyPayload()"><svg class="h-3.5 w-3.5"><use href="#i-copy"></use></svg> Копировать</button>
+          </div>
+          <pre class="json-view max-h-64 overflow-auto scroll-thin" x-text="payloadJson()"></pre>
+        </div>
+
+        <div>
+          <div class="mb-2 flex items-center justify-between">
+            <div class="text-[10px] font-extrabold uppercase tracking-[.15em] text-slate-500">Raw log</div>
+            <button class="btn btn-xs btn-ghost" @click="copyRaw()"><svg class="h-3.5 w-3.5"><use href="#i-copy"></use></svg> Копировать</button>
+          </div>
+          <pre class="json-view max-h-48 overflow-auto scroll-thin !text-slate-400" x-text="selectedEvent?.raw_log || '—'"></pre>
+        </div>
+
+        <div class="hairline"></div>
+        <div class="grid grid-cols-2 gap-3 text-[10px] text-slate-500">
+          <div><span class="text-slate-600">Timestamp:</span> <span class="mono block mt-0.5 text-slate-400" x-text="selectedEvent ? HP.dateTime(selectedEvent.timestamp) : '—'"></span></div>
+          <div><span class="text-slate-600">Honeypot ID:</span> <span class="mono block mt-0.5 truncate text-slate-400" x-text="selectedEvent?.honeypot_id || '—'"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

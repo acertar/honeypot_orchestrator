@@ -1,0 +1,149 @@
+<section x-show="authChecked && !user" x-transition.opacity x-cloak class="auth-shell relative z-10">
+  <!-- Brand / art -->
+  <div class="auth-art hidden lg:flex">
+    <div class="auth-art-grid"></div>
+    <div class="auth-scan"></div>
+    <div class="pointer-events-none absolute -left-28 top-1/4 h-80 w-80 rounded-full bg-neon-cyan/10 blur-3xl"></div>
+    <div class="pointer-events-none absolute -right-32 bottom-0 h-96 w-96 rounded-full bg-neon-violet/10 blur-3xl"></div>
+
+    <div class="relative flex w-full flex-col justify-between p-10 xl:p-14">
+      <div class="flex items-center justify-between">
+        <a href="/" class="flex items-center gap-3">
+          <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" class="h-11 w-11 drop-shadow-[0_0_18px_rgba(34,211,238,.35)]">
+          <div>
+            <div class="text-sm font-extrabold tracking-[.18em] text-white">HONEYPOT</div>
+            <div class="text-[9px] font-bold tracking-[.34em] text-neon-cyan/80">ORCHESTRATOR</div>
+          </div>
+        </a>
+        <span class="glass-chip border-neon-violet/20 bg-neon-violet/[.06] text-neon-violet">
+          <svg class="h-3.5 w-3.5"><use href="#i-lock"></use></svg> CONTROL PLANE
+        </span>
+      </div>
+
+      <div class="max-w-xl">
+        <div class="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[.24em] text-neon-cyan/80">
+          <span class="dot dot-live"></span> защищённый контур управления
+        </div>
+        <h1 class="mt-4 text-4xl font-extrabold leading-[1.12] tracking-tight text-white xl:text-5xl">
+          Управляй ловушками.<br>
+          <span class="gradient-text">Контролируй периметр.</span>
+        </h1>
+        <p class="mt-4 max-w-lg text-sm leading-7 text-slate-400">
+          Единая точка управления Podman-контейнерами, пользователями и интеграциями
+          с SIEM/SOPKA. Каждое действие фиксируется в журнале аудита.
+        </p>
+
+        <div class="mt-8 grid max-w-lg grid-cols-3 gap-3">
+          <div class="panel-soft p-3.5">
+            <svg class="h-5 w-5 text-neon-cyan"><use href="#i-server"></use></svg>
+            <div class="mt-2 text-[13px] font-extrabold tracking-wide text-white">PODMAN</div>
+            <div class="text-[10px] text-slate-500">rootless runtime</div>
+          </div>
+          <div class="panel-soft p-3.5">
+            <svg class="h-5 w-5 text-neon-violet"><use href="#i-key"></use></svg>
+            <div class="mt-2 text-[13px] font-extrabold tracking-wide text-white">JWT</div>
+            <div class="text-[10px] text-slate-500">RBAC + audit</div>
+          </div>
+          <div class="panel-soft p-3.5">
+            <svg class="h-5 w-5 text-neon-green"><use href="#i-shield-check"></use></svg>
+            <div class="mt-2 text-lg font-extrabold text-white">24/7</div>
+            <div class="text-[10px] text-slate-500">мониторинг</div>
+          </div>
+        </div>
+
+        <div class="mt-8 max-w-lg overflow-hidden rounded-2xl border border-white/[.08] bg-black/40">
+          <div class="flex items-center gap-2 border-b border-white/[.06] px-4 py-2.5">
+            <span class="h-2 w-2 rounded-full bg-neon-red/70"></span>
+            <span class="h-2 w-2 rounded-full bg-neon-amber/70"></span>
+            <span class="h-2 w-2 rounded-full bg-neon-green/70"></span>
+            <span class="mono ml-2 text-[9px] text-slate-600">honeypotctl — live status</span>
+          </div>
+          <div class="mono space-y-1.5 px-4 py-3.5 text-[10px] leading-5 text-slate-500">
+            <div><span class="text-neon-cyan">$</span> honeypotctl status --all</div>
+            <div><span class="text-neon-green">[ok]</span> mongodb://localhost:27017 <span class="text-slate-700">healthy</span></div>
+            <div><span class="text-neon-green">[ok]</span> amqp://localhost:5672 <span class="text-slate-700">queue: honeypot_events_queue</span></div>
+            <div><span class="text-neon-green">[ok]</span> podman.socket <span class="text-slate-700">rootless</span></div>
+            <div><span class="text-neon-violet">[→]</span> siem forwarder <span class="text-slate-700">CEF / syslog_udp</span></div>
+            <div class="pt-1 text-slate-600">// waiting for operator authentication<span class="animate-pulse text-neon-cyan">_</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-3 text-[10px] text-slate-600">
+        <span>© 2026 Honeypot Orchestrator</span>
+        <div class="flex gap-4">
+          <span class="flex items-center gap-1.5"><span class="dot dot-live"></span> JWT · RBAC</span>
+          <span class="flex items-center gap-1.5"><span class="dot dot-live"></span> audit trail</span>
+          <span class="flex items-center gap-1.5"><span class="dot dot-live"></span> rootless podman</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login form -->
+  <div class="flex items-center justify-center px-4 py-10 sm:px-8">
+    <div class="w-full max-w-md">
+      <div class="mb-8 flex items-center gap-3 lg:hidden">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" class="h-10 w-10">
+        <div>
+          <div class="text-sm font-extrabold tracking-[.18em] text-white">HONEYPOT</div>
+          <div class="text-[9px] font-bold tracking-[.32em] text-neon-cyan/80">ORCHESTRATOR</div>
+        </div>
+      </div>
+
+      <div class="auth-card p-6 sm:p-8">
+        <div class="flex items-center justify-between">
+          <span class="badge badge-violet"><svg class="h-3 w-3"><use href="#i-lock"></use></svg> ADMIN PANEL</span>
+          <span class="flex items-center gap-1.5 text-[10px] text-slate-500"><span class="dot dot-live"></span> localhost / VPN</span>
+        </div>
+
+        <h2 class="mt-6 text-2xl font-extrabold tracking-tight text-white">Вход в систему</h2>
+        <p class="mt-1.5 text-sm text-slate-500">Используйте учётную запись оператора SOC.</p>
+
+        <form class="mt-7 space-y-4" @submit.prevent="doLogin()">
+          <div class="rounded-xl border border-neon-red/20 bg-neon-red/[.07] px-3.5 py-2.5 text-[12px] text-neon-red" x-show="loginError" x-transition>
+            <div class="flex items-start gap-2">
+              <svg class="mt-0.5 h-4 w-4 flex-none"><use href="#i-alert"></use></svg>
+              <span x-text="loginError"></span>
+            </div>
+          </div>
+
+          <div>
+            <label class="field-label" for="admin-username">Имя пользователя</label>
+            <div class="relative">
+              <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"><use href="#i-user"></use></svg>
+              <input id="admin-username" type="text" class="input !pl-9" placeholder="admin" autocomplete="username" x-model.trim="loginForm.username">
+            </div>
+          </div>
+
+          <div>
+            <label class="field-label" for="admin-password">Пароль</label>
+            <div class="relative">
+              <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"><use href="#i-key"></use></svg>
+              <input id="admin-password" :type="showPassword ? 'text' : 'password'" class="input !px-9" placeholder="••••••••" autocomplete="current-password" x-model="loginForm.password">
+              <button type="button" class="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-white/5 hover:text-slate-300" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'">
+                <svg class="h-4 w-4"><use :href="showPassword ? '#i-ban' : '#i-eye'"></use></svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-full !py-3" :disabled="loginLoading">
+            <svg x-show="loginLoading" class="h-4 w-4 animate-spin"><use href="#i-refresh"></use></svg>
+            <svg x-show="!loginLoading" class="h-4 w-4"><use href="#i-shield-check"></use></svg>
+            <span x-text="loginLoading ? 'Проверка…' : 'Войти в панель'"></span>
+          </button>
+        </form>
+
+        <div class="mt-6 rounded-xl border border-white/[.06] bg-white/[.02] px-3.5 py-3 text-[11px] leading-5 text-slate-500">
+          <div class="flex items-center gap-2 font-semibold text-slate-400"><svg class="h-3.5 w-3.5 text-neon-cyan"><use href="#i-info"></use></svg> Первичный доступ</div>
+          <p class="mt-1">После <span class="mono text-slate-300">seed</span>: <span class="mono text-neon-cyan">admin</span> / <span class="mono text-neon-cyan">admin123</span>. Смените пароль сразу после входа.</p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex items-center justify-center gap-2 text-[10px] text-slate-600">
+        <svg class="h-3.5 w-3.5"><use href="#i-lock"></use></svg>
+        <span>Все действия операторов записываются в audit_logs</span>
+      </div>
+    </div>
+  </div>
+</section>

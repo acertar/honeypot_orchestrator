@@ -1,0 +1,55 @@
+<aside class="sidebar fixed inset-y-0 left-0 z-50 flex w-72 flex-col transition-transform duration-300 lg:translate-x-0"
+       :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
+  <div class="flex items-center justify-between px-5 pb-6 pt-6">
+    <a href="/" class="flex items-center gap-3">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" class="h-10 w-10 drop-shadow-[0_0_14px_rgba(139,92,246,.35)]">
+      <div>
+        <div class="text-[13px] font-extrabold tracking-[.18em] text-white">HONEYPOT</div>
+        <div class="text-[9px] font-bold tracking-[.32em] text-neon-violet/80">ORCHESTRATOR</div>
+      </div>
+    </a>
+    <button class="btn btn-icon btn-ghost lg:hidden" @click="sidebarOpen = false" aria-label="Закрыть меню">
+      <svg class="h-5 w-5"><use href="#i-x"></use></svg>
+    </button>
+  </div>
+
+  <div class="px-5">
+    <div class="glass-chip w-full justify-center border-neon-violet/20 bg-neon-violet/[.06] text-neon-violet">
+      <svg class="h-3.5 w-3.5"><use href="#i-lock"></use></svg>
+      CONTROL PLANE
+    </div>
+  </div>
+
+  <nav class="mt-6 flex-1 space-y-1.5 overflow-y-auto px-4 scroll-thin">
+    <template x-for="item in navItems()" :key="item.id">
+      <button type="button" class="nav-item" :class="tab === item.id ? 'active' : ''" @click="go(item.id)">
+        <svg class="nav-ico"><use :href="'#' + item.icon"></use></svg>
+        <span x-text="item.label"></span>
+        <span x-show="item.badge" class="nav-badge" x-text="item.badge"></span>
+      </button>
+    </template>
+  </nav>
+
+  <div class="space-y-3 px-4 pb-5">
+    <div class="panel-soft p-3.5">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-neon-violet/20 bg-neon-violet/10 text-sm font-extrabold text-neon-violet" x-text="userInitials()"></div>
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-[12px] font-bold text-slate-200" x-text="user?.username"></div>
+          <div class="mt-0.5 text-[10px] text-slate-500" x-text="user?.email || '—'"></div>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center justify-between">
+        <span class="badge" :class="HP.roleMeta(user?.role).className" x-text="HP.roleMeta(user?.role).label"></span>
+        <button class="btn btn-icon btn-xs btn-ghost" @click="doLogout()" title="Выйти">
+          <svg class="h-3.5 w-3.5"><use href="#i-logout"></use></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-white/[.05] bg-white/[.02] px-3 py-2.5 text-[10px] leading-4 text-slate-600">
+      <div class="flex items-center gap-1.5 text-slate-500"><svg class="h-3 w-3 text-neon-green"><use href="#i-shield-check"></use></svg> Сессия защищена</div>
+      <div class="mt-1">JWT · httpOnly cookie · 30 мин</div>
+    </div>
+  </div>
+</aside>

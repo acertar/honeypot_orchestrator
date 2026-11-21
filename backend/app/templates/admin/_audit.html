@@ -1,0 +1,126 @@
+<section x-show="tab === 'audit'" x-transition.opacity class="space-y-5">
+  <div class="panel p-5">
+    <form @submit.prevent="applyAuditFilters()" class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div class="panel-title">Журнал аудита</div>
+          <div class="panel-subtitle">Все административные действия и попытки доступа</div>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-xs btn-ghost" @click="exportAudit()">
+            <svg class="h-3.5 w-3.5"><use href="#i-download"></use></svg> Экспорт
+          </button>
+          <button type="button" class="btn btn-xs btn-ghost" @click="resetAuditFilters()">Сбросить</button>
+          <button type="submit" class="btn btn-xs btn-primary">
+            <svg class="h-3.5 w-3.5"><use href="#i-search"></use></svg> Применить
+          </button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div>
+          <label class="field-label">Действие</label>
+          <input type="text" class="input" placeholder="user.create, honeypot.stop…" x-model="auditFilters.action">
+        </div>
+        <div>
+          <label class="field-label">Пользователь (ID)</label>
+          <input type="text" class="input" placeholder="MongoDB ObjectId" x-model="auditFilters.user_id">
+        </div>
+        <div>
+          <label class="field-label">Тип ресурса</label>
+          <input type="text" class="input" placeholder="honeypot, user, siem_config…" x-model="auditFilters.resource_type">
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-[11px] text-slate-500">
+        <span>Записей:</span>
+        <span class="mono font-bold text-slate-200" x-text="HP.number(audit.total)"></span>
+        <span class="text-slate-700">·</span>
+        <span>Страница <span class="text-slate-300" x-text="audit.page"></span> из <span class="text-slate-300" x-text="audit.pages || 1"></span></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel overflow-hidden">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Время</th>
+            <th>Оператор</th>
+            <th>Действие</th>
+            <th>Ресурс</th>
+            <th>Статус</th>
+            <th>IP</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="auditLoading">
+            <template x-for="i in 5" :key="'a-skel-' + i">
+              <tr>
+                <td><div class="skeleton h-4 w-28"></div></td>
+                <td><div class="skeleton h-4 w-24"></div></td>
+                <td><div class="skeleton h-4 w-36"></div></td>
+                <td><div class="skeleton h-4 w-32"></div></td>
+                <td><div class="skeleton h-4 w-12"></div></td>
+                <td><div class="skeleton h-4 w-24"></div></td>
+              </tr>
+            </template>
+          </template>
+
+          <template x-if="!auditLoading && !audit.items.length">
+            <tr>
+              <td colspan="6">
+                <div class="empty-state">
+                  <div class="empty-icon"><svg class="h-5 w-5"><use href="#i-file"></use></svg></div>
+                  <div class="text-sm font-semibold text-slate-400">Записей аудита нет</div>
+                  <div class="text-xs">Действия администраторов появятся здесь автоматически.</div>
+                </div>
+              </td>
+            </tr>
+          </template>
+
+          <template x-for="entry in audit.items" :key="entry._id">
+            <tr>
+              <td>
+                <div class="text-[11px] text-slate-300" x-text="HP.dateTime(entry.timestamp)"></div>
+                <div class="mt-0.5 text-[9px] text-slate-600" x-text="HP.relative(entry.timestamp)"></div>
+              </td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <span class="flex h-7 w-7 flex-none items-center justify-center rounded-lg border border-white/10 bg-white/[.04] text-[9px] font-extrabold text-slate-300" x-text="(entry.username || 'SY').slice(0, 2).toUpperCase()"></span>
+                  <div class="min-w-0">
+                    <div class="truncate text-[11px] font-semibold text-slate-300" x-text="entry.username || 'anonymous'"></div>
+                    <div class="mono max-w-[120px] truncate text-[8px] text-slate-600" x-text="entry.user_id || '—'"></div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="mono text-[10px] text-neon-cyan/80" x-text="entry.action"></span></td>
+              <td>
+                <div class="text-[11px] text-slate-400" x-text="entry.resource_type || '—'"></div>
+                <div class="mono max-w-[140px] truncate text-[9px] text-slate-600" x-text="entry.resource_id || ''"></div>
+              </td>
+              <td>
+                <span class="badge" :class="entry.status_code < 400 ? 'badge-low' : 'badge-critical'" x-text="entry.status_code"></span>
+              </td>
+              <td>
+                <div class="mono text-[10px] text-slate-400" x-text="entry.ip_address || '—'"></div>
+                <div class="mt-0.5 max-w-[160px] truncate text-[9px] text-slate-600" x-text="entry.user_agent || ''"></div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-white/[.06] px-4 py-3">
+      <div class="text-[11px] text-slate-500">
+        Всего <span class="font-bold text-slate-300" x-text="HP.number(audit.total)"></span> записей
+      </div>
+      <div class="flex items-center gap-1">
+        <button class="btn btn-icon btn-xs btn-ghost" :disabled="audit.page <= 1" @click="auditGo(audit.page - 1)"><svg class="h-4 w-4"><use href="#i-chevron-left"></use></svg></button>
+        <template x-for="p in auditPageWindow()" :key="'ap-' + p">
+          <button class="btn btn-xs" :class="p === audit.page ? 'btn-primary' : 'btn-ghost'" @click="auditGo(p)" x-text="p"></button>
+        </template>
+        <button class="btn btn-icon btn-xs btn-ghost" :disabled="audit.page >= audit.pages" @click="auditGo(audit.page + 1)"><svg class="h-4 w-4"><use href="#i-chevron-right"></use></svg></button>
+      </div>
+    </div>
+  </div>
+</section>

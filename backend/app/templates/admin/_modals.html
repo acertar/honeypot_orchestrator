@@ -1,0 +1,255 @@
+<!-- ================= HONEYPOT MODAL ================= -->
+<div x-show="hpModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6" @keydown.escape.window="hpModal && !hpSaving ? closeHoneypotModal() : null">
+  <div class="absolute inset-0 bg-black/75 backdrop-blur-sm"
+       x-show="hpModal" x-transition.opacity @click="!hpSaving && closeHoneypotModal()"></div>
+  <div class="panel relative max-h-[92vh] w-full max-w-2xl overflow-y-auto scroll-thin"
+       x-show="hpModal"
+       x-transition:enter="transition ease-out duration-250"
+       x-transition:enter-start="opacity-0 translate-y-3 scale-[.98]"
+       x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-2">
+    <div class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/[.08] bg-ink-900/95 px-5 py-4 backdrop-blur-xl">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="badge badge-violet">PODMAN</span>
+          <span class="text-[9px] uppercase tracking-[.16em] text-slate-600">rootless</span>
+        </div>
+        <h2 class="mt-2 text-lg font-extrabold text-white">Новая ловушка</h2>
+        <p class="mt-1 text-xs text-slate-500">Оркестратор создаст сеть, скачает образ и запустит контейнер.</p>
+      </div>
+      <button class="btn btn-icon btn-ghost" @click="closeHoneypotModal()" :disabled="hpSaving"><svg class="h-5 w-5"><use href="#i-x"></use></svg></button>
+    </div>
+
+    <form class="space-y-4 p-5" @submit.prevent="saveHoneypot()">
+      <div class="rounded-xl border border-neon-red/20 bg-neon-red/[.06] px-3.5 py-2.5 text-[12px] text-neon-red" x-show="hpError">
+        <div class="flex items-start gap-2"><svg class="mt-0.5 h-4 w-4 flex-none"><use href="#i-alert"></use></svg><span x-text="hpError"></span></div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label class="field-label">Имя ловушки</label>
+          <input class="input mono" placeholder="gov-web-01" x-model.trim="hpForm.name">
+          <p class="mt-1 text-[10px] text-slate-600">3-64 символа: латиница, цифры, . _ -</p>
+        </div>
+        <div>
+          <label class="field-label">Тип</label>
+          <select class="select" x-model="hpForm.type" @change="applyHoneypotPreset()">
+            <template x-for="(meta, type) in HP.honeypotTypes" :key="type">
+              <option :value="type" x-text="meta.label"></option>
+            </template>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">Образ контейнера</label>
+        <input class="input mono" placeholder="nginx:alpine" x-model.trim="hpForm.image_name">
+        <p class="mt-1 text-[10px] text-slate-600">Если образа нет локально, будет выполнен <span class="mono">podman pull</span>.</p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label class="field-label">Локация</label>
+          <input class="input" placeholder="DMZ / Internal / Branch" x-model.trim="hpForm.location">
+        </div>
+        <div>
+          <label class="field-label">Описание</label>
+          <input class="input" placeholder="Эмуляция веб-портала" x-model.trim="hpForm.description">
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-white/[.07] bg-white/[.02] p-3.5">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-[10px] font-extrabold uppercase tracking-[.14em] text-slate-500">Проброс портов</div>
+            <div class="mt-1 text-[10px] text-slate-600">Контейнерный порт → порт на хосте</div>
+          </div>
+          <button type="button" class="btn btn-xs btn-ghost" @click="addPortRow()"><svg class="h-3.5 w-3.5"><use href="#i-plus"></use></svg> Порт</button>
+        </div>
+        <div class="mt-3 space-y-2">
+          <template x-for="(port, index) in hpForm.ports" :key="'port-' + index">
+            <div class="grid grid-cols-[1fr_1fr_92px_40px] items-center gap-2">
+              <input class="input mono !py-2 text-[12px]" placeholder="80" x-model.trim="port.container">
+              <input class="input mono !py-2 text-[12px]" placeholder="8080" x-model.trim="port.host">
+              <select class="select !py-2 text-[12px]" x-model="port.protocol">
+                <option value="tcp">tcp</option>
+                <option value="udp">udp</option>
+              </select>
+              <button type="button" class="btn btn-icon btn-xs btn-ghost" @click="removePortRow(index)" :disabled="hpForm.ports.length <= 1">
+                <svg class="h-3.5 w-3.5"><use href="#i-trash"></use></svg>
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-3 border-t border-white/[.06] pt-4">
+        <div class="flex items-center gap-2 text-[10px] text-slate-500"><span class="dot dot-live"></span><span>сеть: <span class="mono text-slate-400">honeypot_network</span></span></div>
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-ghost" @click="closeHoneypotModal()" :disabled="hpSaving">Отмена</button>
+          <button type="submit" class="btn btn-primary" :disabled="hpSaving">
+            <svg class="h-4 w-4" :class="hpSaving ? 'animate-spin' : ''"><use :href="hpSaving ? '#i-refresh' : '#i-play'"></use></svg>
+            <span x-text="hpSaving ? 'Развёртывание…' : 'Создать и запустить'"></span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= USER MODAL ================= -->
+<div x-show="userModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6" @keydown.escape.window="userModal && !userSaving ? closeUserModal() : null">
+  <div class="absolute inset-0 bg-black/75 backdrop-blur-sm" x-show="userModal" x-transition.opacity @click="!userSaving && closeUserModal()"></div>
+  <div class="panel relative max-h-[92vh] w-full max-w-lg overflow-y-auto scroll-thin"
+       x-show="userModal"
+       x-transition:enter="transition ease-out duration-250"
+       x-transition:enter-start="opacity-0 translate-y-3 scale-[.98]"
+       x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-2">
+    <div class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/[.08] bg-ink-900/95 px-5 py-4 backdrop-blur-xl">
+      <div>
+        <div class="badge badge-violet">RBAC</div>
+        <h2 class="mt-2 text-lg font-extrabold text-white" x-text="userForm.id ? 'Редактирование пользователя' : 'Новый пользователь'"></h2>
+      </div>
+      <button class="btn btn-icon btn-ghost" @click="closeUserModal()" :disabled="userSaving"><svg class="h-5 w-5"><use href="#i-x"></use></svg></button>
+    </div>
+
+    <form class="space-y-4 p-5" @submit.prevent="saveUser()">
+      <div class="rounded-xl border border-neon-red/20 bg-neon-red/[.06] px-3.5 py-2.5 text-[12px] text-neon-red" x-show="userError">
+        <div class="flex items-start gap-2"><svg class="mt-0.5 h-4 w-4 flex-none"><use href="#i-alert"></use></svg><span x-text="userError"></span></div>
+      </div>
+
+      <div>
+        <label class="field-label">Имя пользователя</label>
+        <input class="input mono" placeholder="soc-analyst" x-model.trim="userForm.username" :disabled="!!userForm.id">
+      </div>
+      <div>
+        <label class="field-label">Email</label>
+        <input type="email" class="input" placeholder="analyst@example.org" x-model.trim="userForm.email">
+      </div>
+      <div>
+        <label class="field-label">Пароль <span class="normal-case tracking-normal text-slate-600" x-text="userForm.id ? '(оставьте пустым, чтобы не менять)' : ''"></span></label>
+        <input type="password" class="input" placeholder="Минимум 8 символов" autocomplete="new-password" x-model="userForm.password">
+      </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label class="field-label">Роль</label>
+          <select class="select" x-model="userForm.role">
+            <template x-for="(meta, role) in HP.roles" :key="role">
+              <option :value="role" x-text="meta.label"></option>
+            </template>
+          </select>
+        </div>
+        <div class="flex items-end pb-2">
+          <label class="flex cursor-pointer items-center gap-2 text-[12px] text-slate-300">
+            <input type="checkbox" class="checkbox" x-model="userForm.is_active">
+            Учётная запись активна
+          </label>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 border-t border-white/[.06] pt-4">
+        <button type="button" class="btn btn-ghost" @click="closeUserModal()" :disabled="userSaving">Отмена</button>
+        <button type="submit" class="btn btn-primary" :disabled="userSaving">
+          <svg class="h-4 w-4" :class="userSaving ? 'animate-spin' : ''"><use :href="userSaving ? '#i-refresh' : '#i-check'"></use></svg>
+          <span x-text="userSaving ? 'Сохранение…' : 'Сохранить'"></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= SIEM MODAL ================= -->
+<div x-show="siemModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6" @keydown.escape.window="siemModal && !siemSaving ? closeSiemModal() : null">
+  <div class="absolute inset-0 bg-black/75 backdrop-blur-sm" x-show="siemModal" x-transition.opacity @click="!siemSaving && closeSiemModal()"></div>
+  <div class="panel relative max-h-[92vh] w-full max-w-xl overflow-y-auto scroll-thin"
+       x-show="siemModal"
+       x-transition:enter="transition ease-out duration-250"
+       x-transition:enter-start="opacity-0 translate-y-3 scale-[.98]"
+       x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-2">
+    <div class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/[.08] bg-ink-900/95 px-5 py-4 backdrop-blur-xl">
+      <div>
+        <div class="badge badge-cyan">SIEM / SOPKA</div>
+        <h2 class="mt-2 text-lg font-extrabold text-white" x-text="siemForm.id ? 'Редактирование интеграции' : 'Новая интеграция'"></h2>
+      </div>
+      <button class="btn btn-icon btn-ghost" @click="closeSiemModal()" :disabled="siemSaving"><svg class="h-5 w-5"><use href="#i-x"></use></svg></button>
+    </div>
+
+    <form class="space-y-4 p-5" @submit.prevent="saveSiem()">
+      <div class="rounded-xl border border-neon-red/20 bg-neon-red/[.06] px-3.5 py-2.5 text-[12px] text-neon-red" x-show="siemError">
+        <div class="flex items-start gap-2"><svg class="mt-0.5 h-4 w-4 flex-none"><use href="#i-alert"></use></svg><span x-text="siemError"></span></div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label class="field-label">Тип SIEM</label>
+          <select class="select" x-model="siemForm.siem_type">
+            <option value="sopka">SOPKA</option>
+            <option value="maxpatrol">MaxPatrol</option>
+            <option value="kaspersky">Kaspersky</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Область</label>
+          <select class="select" x-model="siemForm.honeypot_id">
+            <option value="">Глобальная</option>
+            <template x-for="hp in honeypots" :key="'siem-hp-' + hp.id">
+              <option :value="hp.id" x-text="hp.name"></option>
+            </template>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Host</label>
+          <input class="input mono" placeholder="10.10.10.25" x-model.trim="siemForm.host">
+        </div>
+        <div>
+          <label class="field-label">Port</label>
+          <input type="number" min="1" max="65535" class="input mono" placeholder="514" x-model.number="siemForm.port">
+        </div>
+        <div>
+          <label class="field-label">Протокол</label>
+          <select class="select" x-model="siemForm.protocol">
+            <option value="syslog_udp">Syslog UDP</option>
+            <option value="syslog_tcp">Syslog TCP</option>
+            <option value="kafka">Kafka</option>
+            <option value="rest">REST</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Формат</label>
+          <select class="select" x-model="siemForm.format">
+            <option value="CEF">CEF</option>
+            <option value="LEEF">LEEF</option>
+            <option value="JSON">JSON</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">API key <span class="normal-case tracking-normal text-slate-600">(опционально, хранится на сервере)</span></label>
+        <input type="password" class="input mono" placeholder="••••••••" autocomplete="new-password" x-model="siemForm.api_key">
+        <p class="mt-1 text-[10px] text-slate-600" x-show="siemForm.id">Оставьте пустым, чтобы сохранить текущий ключ.</p>
+      </div>
+
+      <label class="flex cursor-pointer items-center gap-2 text-[12px] text-slate-300">
+        <input type="checkbox" class="checkbox" x-model="siemForm.is_active">
+        Форвардинг активен
+      </label>
+
+      <div class="flex justify-end gap-2 border-t border-white/[.06] pt-4">
+        <button type="button" class="btn btn-ghost" @click="closeSiemModal()" :disabled="siemSaving">Отмена</button>
+        <button type="submit" class="btn btn-primary" :disabled="siemSaving">
+          <svg class="h-4 w-4" :class="siemSaving ? 'animate-spin' : ''"><use :href="siemSaving ? '#i-refresh' : '#i-check'"></use></svg>
+          <span x-text="siemSaving ? 'Сохранение…' : 'Сохранить'"></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

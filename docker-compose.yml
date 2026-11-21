@@ -1,0 +1,70 @@
+# Honeypot Orchestrator — инфраструктурные сервисы.
+# Podman:
+#   podman-compose up -d
+# или:
+#   podman play kube ... (см. README)
+
+services:
+  mongodb:
+    image: docker.io/library/mongo:7
+    container_name: honeypot_mongodb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: honeypot_db
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - honeypot_net
+
+  rabbitmq:
+    image: docker.io/library/rabbitmq:3-management
+    container_name: honeypot_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - honeypot_net
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: honeypot_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--bind", "0.0.0.0", "--protected-mode", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - honeypot_net
+
+volumes:
+  mongo_data:
+  rabbitmq_data:
+  redis_data:
+
+networks:
+  honeypot_net:
+    driver: bridge

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel — Honeypot Orchestrator{% endblock %}
+
+{% block content %}
+<div x-data="adminApp()" x-init="init()">
+
+  <!-- ================= SPLASH ================= -->
+  <div x-show="!authChecked" class="fixed inset-0 z-[80] flex items-center justify-center bg-ink-950">
+    <div class="flex flex-col items-center gap-5">
+      <div class="relative">
+        <div class="absolute inset-0 animate-ping rounded-full bg-neon-cyan/20"></div>
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" class="relative h-16 w-16">
+      </div>
+      <div class="text-center">
+        <div class="text-sm font-extrabold tracking-[.24em] text-white">HONEYPOT</div>
+        <div class="mt-1 text-[9px] font-bold tracking-[.34em] text-neon-cyan/70">ORCHESTRATOR</div>
+      </div>
+      <div class="flex items-center gap-2 text-[11px] text-slate-500">
+        <span class="dot dot-live"></span> проверка сессии…
+      </div>
+    </div>
+  </div>
+
+  {% include "admin/_login.html" %}
+
+  <!-- ================= APP ================= -->
+  <div x-show="authChecked && user" x-cloak class="relative z-10 min-h-screen lg:flex">
+    <div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden" @click="sidebarOpen = false"></div>
+
+    {% include "admin/_sidebar.html" %}
+
+    <div class="flex min-h-screen w-full flex-col lg:pl-72">
+      {% include "admin/_topbar.html" %}
+
+      <main class="flex-1 px-4 py-6 sm:px-6 xl:px-8">
+        {% include "admin/_overview.html" %}
+        {% include "admin/_honeypots.html" %}
+        {% include "admin/_users.html" %}
+        {% include "admin/_siem.html" %}
+        {% include "admin/_audit.html" %}
+
+        <footer class="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-white/[.05] pt-4 text-[10px] text-slate-600">
+          <span>Honeypot Orchestrator · Admin Control Plane</span>
+          <span class="flex items-center gap-2">
+            <span class="dot dot-live"></span>
+            <span x-text="'JWT · ' + HP.roleMeta(user?.role).label"></span>
+            <span class="text-slate-700">·</span>
+            <span class="mono" x-text="'v1.0.0'"></span>
+          </span>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  {% include "admin/_modals.html" %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin-charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin-actions.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,119 @@
+<section x-show="tab === 'siem'" x-transition.opacity class="space-y-5">
+  <div class="panel flex flex-wrap items-center justify-between gap-4 p-5">
+    <div>
+      <div class="panel-title">Интеграции SIEM / SOPKA</div>
+      <div class="panel-subtitle">Форвардинг событий в формате CEF по Syslog</div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="badge badge-low" x-show="siemConfigs.some(c => c.is_active)"><span class="dot dot-live"></span>ACTIVE</span>
+      <button class="btn btn-xs btn-ghost" @click="loadSiem()" :disabled="siemLoading">
+        <svg class="h-3.5 w-3.5" :class="siemLoading ? 'animate-spin' : ''"><use href="#i-refresh"></use></svg> Обновить
+      </button>
+      <button class="btn btn-xs btn-primary" @click="openSiemModal()" x-show="canManage()">
+        <svg class="h-3.5 w-3.5"><use href="#i-plus"></use></svg> Добавить конфиг
+      </button>
+    </div>
+  </div>
+
+  <div x-show="siemTestOutput" x-transition class="panel border-neon-cyan/20">
+    <div class="panel-head">
+      <div>
+        <div class="panel-title flex items-center gap-2"><span class="dot dot-live"></span> Результат тестовой отправки</div>
+        <div class="panel-subtitle mono break-all" x-text="siemTestOutput"></div>
+      </div>
+      <button class="btn btn-xs btn-ghost" @click="copySiemTest()">
+        <svg class="h-3.5 w-3.5"><use href="#i-copy"></use></svg> Копировать
+      </button>
+    </div>
+  </div>
+
+  <div class="panel overflow-hidden">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>SIEM</th>
+            <th>Endpoint</th>
+            <th>Протокол</th>
+            <th>Формат</th>
+            <th>Статус</th>
+            <th>Последняя синхронизация</th>
+            <th class="text-right">Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="siemLoading">
+            <template x-for="i in 3" :key="'s-skel-' + i">
+              <tr>
+                <td><div class="skeleton h-4 w-24"></div></td>
+                <td><div class="skeleton h-4 w-44"></div></td>
+                <td><div class="skeleton h-4 w-20"></div></td>
+                <td><div class="skeleton h-4 w-16"></div></td>
+                <td><div class="skeleton h-4 w-16"></div></td>
+                <td><div class="skeleton h-4 w-28"></div></td>
+                <td><div class="skeleton ml-auto h-4 w-24"></div></td>
+              </tr>
+            </template>
+          </template>
+
+          <template x-if="!siemLoading && !siemConfigs.length">
+            <tr>
+              <td colspan="7">
+                <div class="empty-state">
+                  <div class="empty-icon"><svg class="h-5 w-5"><use href="#i-send"></use></svg></div>
+                  <div class="text-sm font-semibold text-slate-400">SIEM-конфигураций нет</div>
+                  <div class="text-xs">Добавьте SOPKA / MaxPatrol / Kaspersky и включите форвардинг.</div>
+                </div>
+              </td>
+            </tr>
+          </template>
+
+          <template x-for="cfg in siemConfigs" :key="cfg.id">
+            <tr>
+              <td>
+                <div class="flex items-center gap-3">
+                  <div class="flex h-9 w-9 items-center justify-center rounded-lg border border-neon-cyan/20 bg-neon-cyan/[.07] text-neon-cyan">
+                    <svg class="h-4 w-4"><use href="#i-send"></use></svg>
+                  </div>
+                  <div>
+                    <div class="font-bold uppercase text-slate-200" x-text="cfg.siem_type"></div>
+                    <div class="mono mt-0.5 text-[9px] text-slate-600" x-text="cfg.honeypot_id ? 'scope: ' + cfg.honeypot_id.slice(-8) : 'global scope'"></div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="mono text-[11px] text-slate-300" x-text="cfg.host + ':' + cfg.port"></span></td>
+              <td><span class="badge badge-cyan" x-text="cfg.protocol"></span></td>
+              <td><span class="badge badge-neutral" x-text="cfg.format"></span></td>
+              <td>
+                <span class="badge" :class="cfg.is_active ? 'badge-low' : 'badge-neutral'">
+                  <span class="dot" :class="cfg.is_active ? 'dot-live' : 'dot-idle'"></span>
+                  <span x-text="cfg.is_active ? 'Активен' : 'Выключен'"></span>
+                </span>
+              </td>
+              <td><span class="text-[10px] text-slate-500" x-text="cfg.last_sync ? HP.dateShort(cfg.last_sync) : 'никогда'"></span></td>
+              <td>
+                <div class="flex items-center justify-end gap-1.5">
+                  <button class="btn btn-xs btn-soft" @click="testSiem(cfg)" :disabled="siemTesting[cfg.id]" title="Тестовая отправка">
+                    <svg class="h-3.5 w-3.5" :class="siemTesting[cfg.id] ? 'animate-spin' : ''"><use href="#i-zap"></use></svg>
+                    <span x-text="siemTesting[cfg.id] ? 'Тест…' : 'Тест'"></span>
+                  </button>
+                  <button class="btn btn-xs btn-ghost" @click="openSiemModal(cfg)" x-show="canManage()" title="Редактировать">
+                    <svg class="h-3.5 w-3.5"><use href="#i-edit"></use></svg>
+                  </button>
+                  <button class="btn btn-xs btn-danger" @click="deleteSiem(cfg)" x-show="canManage()" title="Удалить">
+                    <svg class="h-3.5 w-3.5"><use href="#i-trash"></use></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel-soft flex items-start gap-3 p-4 text-[11px] leading-5 text-slate-500">
+    <svg class="mt-0.5 h-4 w-4 flex-none text-neon-cyan"><use href="#i-info"></use></svg>
+    <div>Форвардер каждые 5 секунд отправляет неотправленные события (<span class="mono text-slate-300">forwarded=false</span>) в активную конфигурацию. API-key хранится на сервере и не возвращается через API.</div>
+  </div>
+</section>

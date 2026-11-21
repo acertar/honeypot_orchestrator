@@ -1,0 +1,35 @@
+<header class="sticky top-0 z-30 border-b border-white/[.06] bg-ink-950/70 backdrop-blur-xl">
+  <div class="flex items-center gap-3 px-4 py-3.5 sm:px-6 xl:px-8">
+    <button class="btn btn-icon btn-ghost lg:hidden" @click="sidebarOpen = true" aria-label="Открыть меню">
+      <svg class="h-5 w-5"><use href="#i-menu"></use></svg>
+    </button>
+
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">
+        <span>Admin Panel</span>
+        <span class="text-slate-700">/</span>
+        <span class="text-neon-violet/80" x-text="pageTitle()"></span>
+      </div>
+      <h1 class="mt-0.5 truncate text-lg font-extrabold tracking-tight text-white sm:text-xl" x-text="pageTitle()"></h1>
+    </div>
+
+    <div class="hidden items-center gap-2 md:flex">
+      <div class="glass-chip">
+        <span class="dot" :class="wsConnected ? 'dot-live' : 'dot-error'"></span>
+        <span class="mono text-[10px] tracking-wider" :class="wsConnected ? 'text-neon-green' : 'text-neon-red'" x-text="wsConnected ? 'LIVE' : 'OFFLINE'"></span>
+      </div>
+      <div class="glass-chip mono text-[11px] text-slate-300">
+        <svg class="h-3.5 w-3.5 text-slate-500"><use href="#i-clock"></use></svg>
+        <span data-hp-clock>00:00:00</span>
+      </div>
+    </div>
+
+    <span class="hidden items-center gap-1.5 sm:flex">
+      <span class="badge" :class="HP.roleMeta(user?.role).className" x-text="HP.roleMeta(user?.role).label"></span>
+    </span>
+
+    <button class="btn btn-icon btn-ghost" @click="refreshAll()" :disabled="refreshing" title="Обновить данные">
+      <svg class="h-4 w-4" :class="refreshing ? 'animate-spin' : ''"><use href="#i-refresh"></use></svg>
+    </button>
+  </div>
+</header>

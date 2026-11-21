@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>{% block title %}Honeypot Orchestrator{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/logo.svg') }}" type="image/svg+xml">
+
+  <!-- Все assets локальные: контур работает без доступа в интернет. -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/fonts.css', v='1.0.0') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css', v='1.0.0') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css', v='1.0.0') }}">
+  <script src="{{ url_for('static', filename='vendor/socket.io.min.js', v='3.0.0') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/echarts.min.js', v='3.0.0') }}"></script>
+  <script src="{{ url_for('static', filename='js/common.js', v='3.0.0') }}"></script>
+  <script defer src="{{ url_for('static', filename='vendor/alpine.min.js', v='3.0.0') }}"></script>
+  {% block head %}{% endblock %}
+</head>
+<body class="min-h-full bg-ink-950 font-sans text-slate-200 antialiased selection:bg-neon-cyan/25 selection:text-white">
+  <div class="app-bg" aria-hidden="true">
+    <div class="app-bg-grid"></div>
+    <div class="app-bg-orb app-bg-orb-1"></div>
+    <div class="app-bg-orb app-bg-orb-2"></div>
+    <div class="app-bg-orb app-bg-orb-3"></div>
+    <div class="app-bg-noise"></div>
+  </div>
+
+  {% block content %}{% endblock %}
+
+  <div id="toast-stack" class="pointer-events-none fixed right-4 top-4 z-[120] flex w-[min(92vw,380px)] flex-col gap-3"></div>
+
+  <div id="hp-confirm" class="fixed inset-0 z-[130] hidden items-center justify-center bg-black/70 px-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div class="confirm-card">
+      <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-neon-red/10 text-neon-red ring-1 ring-neon-red/20" id="hp-confirm-icon">
+        <svg class="h-5 w-5"><use href="#i-alert"></use></svg>
+      </div>
+      <h3 id="hp-confirm-title" class="text-lg font-semibold text-white">Подтвердите действие</h3>
+      <p id="hp-confirm-message" class="mt-2 text-sm leading-6 text-slate-400"></p>
+      <div class="mt-6 flex justify-end gap-3">
+        <button type="button" id="hp-confirm-cancel" class="btn btn-ghost">Отмена</button>
+        <button type="button" id="hp-confirm-ok" class="btn btn-danger">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+
+  {% include "_icons.html" ignore missing %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

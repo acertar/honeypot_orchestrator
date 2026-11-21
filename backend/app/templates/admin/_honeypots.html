@@ -1,0 +1,107 @@
+<section x-show="tab === 'honeypots'" x-transition.opacity class="space-y-5">
+  <div class="panel flex flex-wrap items-center justify-between gap-4 p-5">
+    <div>
+      <div class="panel-title">Управление ловушками</div>
+      <div class="panel-subtitle">Развёртывание, остановка и удаление Podman-контейнеров</div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="badge badge-low"><span class="dot dot-live"></span><span x-text="runningHoneypots() + ' running'"></span></span>
+      <span class="badge badge-neutral" x-text="stoppedHoneypots() + ' stopped'"></span>
+      <button class="btn btn-xs btn-ghost" @click="loadHoneypots()" :disabled="hpLoading">
+        <svg class="h-3.5 w-3.5" :class="hpLoading ? 'animate-spin' : ''"><use href="#i-refresh"></use></svg> Обновить
+      </button>
+      <button class="btn btn-xs btn-primary" @click="openHoneypotModal()" x-show="canManage()">
+        <svg class="h-3.5 w-3.5"><use href="#i-plus"></use></svg> Создать ловушку
+      </button>
+    </div>
+  </div>
+
+  <div class="panel overflow-hidden">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ловушка</th>
+            <th>Статус</th>
+            <th>Образ</th>
+            <th>Порты</th>
+            <th>Локация</th>
+            <th>Последнее событие</th>
+            <th class="text-right">Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="hpLoading">
+            <template x-for="i in 4" :key="'hp-skel-' + i">
+              <tr>
+                <td><div class="skeleton h-4 w-40"></div></td>
+                <td><div class="skeleton h-4 w-20"></div></td>
+                <td><div class="skeleton h-4 w-32"></div></td>
+                <td><div class="skeleton h-4 w-20"></div></td>
+                <td><div class="skeleton h-4 w-24"></div></td>
+                <td><div class="skeleton h-4 w-20"></div></td>
+                <td><div class="skeleton ml-auto h-4 w-16"></div></td>
+              </tr>
+            </template>
+          </template>
+
+          <template x-if="!hpLoading && !honeypots.length">
+            <tr>
+              <td colspan="7">
+                <div class="empty-state">
+                  <div class="empty-icon"><svg class="h-5 w-5"><use href="#i-server"></use></svg></div>
+                  <div class="text-sm font-semibold text-slate-400">Ловушек пока нет</div>
+                  <div class="text-xs">Создайте первую ловушку — оркестратор подготовит сеть и контейнер.</div>
+                  <button class="btn btn-xs btn-primary mt-2" @click="openHoneypotModal()" x-show="canManage()">Создать ловушку</button>
+                </div>
+              </td>
+            </tr>
+          </template>
+
+          <template x-for="hp in honeypots" :key="hp.id">
+            <tr>
+              <td>
+                <div class="flex items-center gap-3">
+                  <div class="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-white/10 text-[9px] font-extrabold tracking-wider text-white" :style="typeGradient(hp.type)" x-text="HP.typeMeta(hp.type).short"></div>
+                  <div class="min-w-0">
+                    <div class="max-w-[180px] truncate font-bold text-slate-200" x-text="hp.name"></div>
+                    <div class="mt-0.5 text-[10px] text-slate-500" x-text="HP.typeMeta(hp.type).label"></div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="badge" :class="HP.statusMeta(hp.status).className">
+                  <span class="dot" :style="'background:' + HP.statusMeta(hp.status).color"></span>
+                  <span x-text="HP.statusMeta(hp.status).label"></span>
+                </span>
+              </td>
+              <td><span class="mono block max-w-[200px] truncate text-[10px] text-slate-400" x-text="hp.image_name || '—'"></span></td>
+              <td><span class="mono block max-w-[150px] truncate text-[10px] text-slate-400" x-text="formatPorts(hp.exposed_ports)"></span></td>
+              <td><span class="block max-w-[130px] truncate text-[11px] text-slate-400" x-text="hp.location || '—'"></span></td>
+              <td><span class="text-[10px] text-slate-500" x-text="hp.last_event_at ? rel(hp.last_event_at) : 'нет данных'"></span></td>
+              <td>
+                <div class="flex items-center justify-end gap-1.5">
+                  <button class="btn btn-xs btn-ghost" x-show="canManage() && hp.status === 'running'" @click="stopHoneypot(hp)" title="Остановить">
+                    <svg class="h-3.5 w-3.5"><use href="#i-stop"></use></svg>
+                  </button>
+                  <button class="btn btn-xs btn-danger" x-show="canManage()" @click="deleteHoneypot(hp)" title="Удалить">
+                    <svg class="h-3.5 w-3.5"><use href="#i-trash"></use></svg>
+                  </button>
+                  <span class="text-[10px] text-slate-600" x-show="!canManage()">read-only</span>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel-soft flex items-start gap-3 p-4 text-[11px] leading-5 text-slate-500">
+    <svg class="mt-0.5 h-4 w-4 flex-none text-neon-amber"><use href="#i-alert"></use></svg>
+    <div>
+      Создание ловушки запускает <span class="mono text-slate-300">podman pull</span> и может занять время.
+      При удалении контейнер и его сетевые порты освобождаются, но исторические события в MongoDB сохраняются.
+    </div>
+  </div>
+</section>

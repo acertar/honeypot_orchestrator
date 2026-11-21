@@ -1,0 +1,106 @@
+<section x-show="tab === 'users'" x-transition.opacity class="space-y-5">
+  <div class="panel flex flex-wrap items-center justify-between gap-4 p-5">
+    <div>
+      <div class="panel-title">Пользователи и доступы</div>
+      <div class="panel-subtitle">Роли viewer / analyst / admin / superadmin</div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="badge badge-cyan"><span class="dot dot-live"></span><span x-text="users.filter(u => u.is_active).length + ' active'"></span></span>
+      <button class="btn btn-xs btn-ghost" @click="loadUsers()" :disabled="usersLoading">
+        <svg class="h-3.5 w-3.5" :class="usersLoading ? 'animate-spin' : ''"><use href="#i-refresh"></use></svg> Обновить
+      </button>
+      <button class="btn btn-xs btn-primary" @click="openUserModal()">
+        <svg class="h-3.5 w-3.5"><use href="#i-plus"></use></svg> Добавить пользователя
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <template x-for="(meta, role) in HP.roles" :key="role">
+      <div class="panel-soft flex items-center justify-between p-3.5">
+        <span class="badge" :class="meta.className" x-text="meta.label"></span>
+        <span class="mono text-sm font-bold text-slate-200" x-text="users.filter(u => u.role === role).length"></span>
+      </div>
+    </template>
+  </div>
+
+  <div class="panel overflow-hidden">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Оператор</th>
+            <th>Email</th>
+            <th>Роль</th>
+            <th>Статус</th>
+            <th>Последний вход</th>
+            <th class="text-right">Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="usersLoading">
+            <template x-for="i in 4" :key="'u-skel-' + i">
+              <tr>
+                <td><div class="skeleton h-4 w-32"></div></td>
+                <td><div class="skeleton h-4 w-44"></div></td>
+                <td><div class="skeleton h-4 w-20"></div></td>
+                <td><div class="skeleton h-4 w-16"></div></td>
+                <td><div class="skeleton h-4 w-28"></div></td>
+                <td><div class="skeleton ml-auto h-4 w-16"></div></td>
+              </tr>
+            </template>
+          </template>
+
+          <template x-if="!usersLoading && !users.length">
+            <tr>
+              <td colspan="6">
+                <div class="empty-state">
+                  <div class="empty-icon"><svg class="h-5 w-5"><use href="#i-users"></use></svg></div>
+                  <div class="text-sm font-semibold text-slate-400">Пользователей нет</div>
+                </div>
+              </td>
+            </tr>
+          </template>
+
+          <template x-for="u in users" :key="u.id">
+            <tr>
+              <td>
+                <div class="flex items-center gap-3">
+                  <div class="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-white/10 bg-white/[.04] text-[11px] font-extrabold text-slate-300" x-text="(u.username || '?').slice(0, 2).toUpperCase()"></div>
+                  <div>
+                    <div class="font-bold text-slate-200" x-text="u.username"></div>
+                    <div class="text-[10px] text-slate-600" x-text="u.id === user?.id ? 'это вы' : 'ID: ' + (u.id || '').slice(-8)"></div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="text-[11px] text-slate-400" x-text="u.email || '—'"></span></td>
+              <td><span class="badge" :class="HP.roleMeta(u.role).className" x-text="HP.roleMeta(u.role).label"></span></td>
+              <td>
+                <span class="badge" :class="u.is_active ? 'badge-low' : 'badge-neutral'">
+                  <span class="dot" :class="u.is_active ? 'dot-live' : 'dot-idle'"></span>
+                  <span x-text="u.is_active ? 'Активен' : 'Отключён'"></span>
+                </span>
+              </td>
+              <td><span class="text-[10px] text-slate-500" x-text="u.last_login ? HP.dateShort(u.last_login) : 'никогда'"></span></td>
+              <td>
+                <div class="flex items-center justify-end gap-1.5">
+                  <button class="btn btn-xs btn-ghost" @click="openUserModal(u)" title="Редактировать">
+                    <svg class="h-3.5 w-3.5"><use href="#i-edit"></use></svg>
+                  </button>
+                  <button class="btn btn-xs btn-danger" @click="deleteUser(u)" :disabled="isSelf(u)" :title="isSelf(u) ? 'Нельзя удалить себя' : 'Удалить'">
+                    <svg class="h-3.5 w-3.5"><use href="#i-trash"></use></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel-soft flex items-start gap-3 p-4 text-[11px] leading-5 text-slate-500">
+    <svg class="mt-0.5 h-4 w-4 flex-none text-neon-violet"><use href="#i-shield-check"></use></svg>
+    <div>Права проверяются на сервере через JWT claims. Интерфейс лишь скрывает недоступные разделы. Удалить или понизить последнего superadmin нельзя.</div>
+  </div>
+</section>
