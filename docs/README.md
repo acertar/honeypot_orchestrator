@@ -2,6 +2,7 @@
 
 - [Основная инструкция: установка, запуск, API, Apache, systemd](../README.md)
 - [Ловушки, SIEM/SOPKA и проверка работоспособности](HONEYPOTS_AND_SIEM.md)
+- [Offline/air-gapped установка и .deb](OFFLINE_INSTALL.md)
 - [Лицензии сторонних компонентов](THIRD_PARTY.md)
 - [Скриншоты интерфейса](screenshots/)
 

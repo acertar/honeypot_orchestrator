@@ -1,0 +1,4 @@
+Target: Debian 13 / Kali Linux 2026 amd64
+Python: 3.13 (wheels also provided for 3.11/3.12)
+Container runtime: rootless Podman
+Images: mongo:7, rabbitmq:3-management, redis:7-alpine, nginx:alpine, cowrie/cowrie:latest

@@ -25,3 +25,14 @@ logs/
 
 # Local data
 data/
+
+# Offline binary bundle (too large for regular Git; use Releases)
+offline/wheels/
+offline/images/
+offline/system/debs/
+offline/system/Packages
+offline/system/Packages.gz
+offline/system/debs.new/
+offline/dist/
+build/
+*.deb

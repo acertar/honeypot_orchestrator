@@ -147,6 +147,8 @@ python run.py admin
 ./install.sh --no-infra        # не запускать контейнеры (БД уже есть)
 ./install.sh --no-seed         # пропустить seed
 ./install.sh --recreate-venv   # пересоздать backend/.venv
+./install.sh --offline         # air-gapped: локальные .deb, wheels, образы
+./install.sh --offline --no-system  # системные зависимости уже стоят
 ```
 
 Проверка после установки:
@@ -168,6 +170,45 @@ Password: admin123
 
 **Смените пароль сразу после входа.** В Admin Panel: «Пользователи» → `admin` →
 «Редактировать» → новый пароль (минимум 8 символов).
+
+---
+
+## Offline / air-gapped установка
+
+Для машины без интернета подготовлен полный комплект:
+
+```text
+offline/
+├── wheels/            # Python 3.11/3.12/3.13
+├── system/            # локальный apt-репозиторий
+├── images/            # mongo, rabbitmq, redis, nginx, cowrie
+├── dist/              # готовый honeypot-orchestrator_1.0.0_amd64.deb
+├── install-offline.sh
+└── run-infra.sh
+```
+
+Установка из распакованного комплекта:
+
+```bash
+cd honeypot_orchestrator
+chmod +x install.sh offline/install-offline.sh offline/run-infra.sh
+./install.sh --offline --start
+```
+
+Установка из одного `.deb`:
+
+```bash
+sudo dpkg -i offline/dist/honeypot-orchestrator_1.0.0_amd64.deb
+sudo chown -R "$USER":"$(id -gn)" /opt/honeypot-orchestrator
+cd /opt/honeypot-orchestrator
+./install.sh --offline --start
+```
+
+Подробно: [`docs/OFFLINE_INSTALL.md`](docs/OFFLINE_INSTALL.md).
+
+Целевая платформа offline-комплекта: Debian 13 / Kali Linux 2026 **amd64**.
+Из-за размера (`.deb` ~818 МБ) бинарный пакет не коммитится в git, а
+публикуется через **GitHub Releases**; см. документацию.
 
 ---
 
@@ -630,9 +671,19 @@ honeypot_orchestrator/
 ├── tailwind.config.js
 ├── frontend-src/tailwind.css
 ├── apache/honeypot.conf
+├── offline/
+│   ├── wheels/            # Python wheels (git-ignored)
+│   ├── system/            # apt-репозиторий (git-ignored)
+│   ├── images/            # образы (git-ignored)
+│   ├── dist/              # .deb (git-ignored, GitHub Release)
+│   ├── build-deb.sh
+│   ├── install-offline.sh
+│   ├── run-infra.sh
+│   └── README.md
 ├── docs/
 │   ├── README.md
 │   ├── HONEYPOTS_AND_SIEM.md
+│   ├── OFFLINE_INSTALL.md
 │   ├── THIRD_PARTY.md
 │   └── screenshots/
 ├── backend/
@@ -658,4 +709,8 @@ honeypot_orchestrator/
 - Redis используется для health-check и зарезервирован под кэш/rate limiting.
 - Гео-карта демонстрационная до подключения GeoIP.
 - Tailwind собран для текущих шаблонов; после добавления новых классов пересоберите CSS.
-- Фронтенд не требует CDN, но для установки pip-зависимостей нужен доступ к PyPI.
+- Фронтенд не требует CDN. Online-установке нужен PyPI; для закрытого контура
+  используйте `offline/` и `./install.sh --offline`.
+- Offline-комплект собран для Debian 13/Kali amd64. Для другой ОС/архитектуры
+  его нужно пересобрать.
+- Полный `.deb` (~818 МБ) публикуется через GitHub Releases, а не обычным git-коммитом.

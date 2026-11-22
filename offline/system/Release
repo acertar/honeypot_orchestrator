@@ -1,0 +1,7 @@
+Origin: Honeypot Orchestrator
+Label: Honeypot Orchestrator offline repository
+Suite: stable
+Codename: stable
+Architectures: amd64
+Components: main
+Description: Offline system dependencies for Honeypot Orchestrator (Debian/Kali amd64)
